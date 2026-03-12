@@ -50,7 +50,7 @@ def baixar_xlsx(url):
 
 # ── Função de salvar no Google Sheets ─────────────────────────────────────
 def salvar_na_aba(nome_aba, df):
-    # Abre a aba pelo nome (ex: carga_horaria)
+    # Abre a aba pelo nome exato conforme está no Google Sheets
     ws = sh.worksheet(nome_aba)
 
     # Limpa o conteúdo anterior da aba
@@ -64,7 +64,8 @@ def salvar_na_aba(nome_aba, df):
     print(f"   ✅ {nome_aba}: {len(df)} linhas salvas")
 
 # ── 1. Curva de Carga Horária ──────────────────────────────────────────────
-# Padrão real do ONS: CURVA_CARGA_2026.xlsx (um arquivo por ano inteiro)
+# Aba no Sheets: CURVA_CARGA
+# Padrão ONS: um arquivo por ano inteiro
 print("\n📊 Coletando Curva de Carga Horária...")
 frames_carga = []
 
@@ -75,15 +76,15 @@ for ano in ANOS:
         frames_carga.append(df)
         print(f"   ✔ {ano} - {len(df)} registros")
 
-# Junta os 3 anos numa única tabela e salva na aba
 if frames_carga:
     df_carga = pd.concat(frames_carga, ignore_index=True)
-    salvar_na_aba("carga_horaria", df_carga)
+    salvar_na_aba("CURVA_CARGA", df_carga)
 else:
     print("   ⚠️ Nenhum dado encontrado para carga horária")
 
 # ── 2. Fator de Capacidade Eólica e Solar ─────────────────────────────────
-# Padrão real do ONS: FATOR_CAPACIDADE-2_2026_03.xlsx (um arquivo por mês/ano)
+# Aba no Sheets: FATOR_CAPACIDADE
+# Padrão ONS: um arquivo por mês/ano
 print("\n🌬️ Coletando Fator de Capacidade Eólica e Solar...")
 frames_fc = []
 
@@ -95,23 +96,55 @@ for ano in ANOS:
             frames_fc.append(df)
             print(f"   ✔ {ano}/{mes:02d} - {len(df)} registros")
 
-# Junta todos os meses/anos numa única tabela e salva na aba
 if frames_fc:
     df_fc = pd.concat(frames_fc, ignore_index=True)
-    salvar_na_aba("fator_capacidade", df_fc)
+    salvar_na_aba("FATOR_CAPACIDADE", df_fc)
 else:
     print("   ⚠️ Nenhum dado encontrado para fator de capacidade")
 
-# ── 3. Capacidade de Geração ───────────────────────────────────────────────
-# Padrão real do ONS: CAPACIDADE_GERACAO.xlsx (arquivo único, sem ano)
+# ── 3. Capacidade Instalada ────────────────────────────────────────────────
+# Aba no Sheets: CAPACIDADE_INSTALADA
+# Padrão ONS: arquivo único sem ano (atualizado diretamente pelo ONS)
 print("\n⚡ Coletando Capacidade de Geração...")
 
 url = f"{BASE_URL}/capacidade-geracao/CAPACIDADE_GERACAO.xlsx"
 df_ci = baixar_xlsx(url)
 
 if df_ci is not None:
-    salvar_na_aba("capacidade_instalada", df_ci)
+    salvar_na_aba("CAPACIDADE_INSTALADA", df_ci)
 else:
     print("   ⚠️ Nenhum dado encontrado para capacidade de geração")
+
+# ── 4. Carga de Energia Mensal ─────────────────────────────────────────────
+# Aba no Sheets: CARGA_ENERGIA_MENSAL
+# Padrão ONS: arquivo único com todo o histórico mensal
+print("\n📅 Coletando Carga de Energia Mensal...")
+
+url = f"{BASE_URL}/carga_energia_me/CARGA_MENSAL.xlsx"
+df_mensal = baixar_xlsx(url)
+
+if df_mensal is not None:
+    salvar_na_aba("CARGA_ENERGIA_MENSAL", df_mensal)
+else:
+    print("   ⚠️ Nenhum dado encontrado para carga mensal")
+
+# ── 5. Carga de Energia Diária ─────────────────────────────────────────────
+# Aba no Sheets: CARGA_ENERGIA_DIARIA
+# Padrão ONS: um arquivo por ano (igual à curva de carga)
+print("\n📆 Coletando Carga de Energia Diária...")
+frames_diaria = []
+
+for ano in ANOS:
+    url = f"{BASE_URL}/carga_energia_di/CARGA_ENERGIA_{ano}.xlsx"
+    df = baixar_xlsx(url)
+    if df is not None:
+        frames_diaria.append(df)
+        print(f"   ✔ {ano} - {len(df)} registros")
+
+if frames_diaria:
+    df_diaria = pd.concat(frames_diaria, ignore_index=True)
+    salvar_na_aba("CARGA_ENERGIA_DIARIA", df_diaria)
+else:
+    print("   ⚠️ Nenhum dado encontrado para carga diária")
 
 print(f"\n🎉 Coleta finalizada com sucesso! - {datetime.now().strftime('%d/%m/%Y %H:%M')}")
