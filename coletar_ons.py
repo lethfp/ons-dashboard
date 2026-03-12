@@ -33,118 +33,123 @@ BASE_URL = "https://ons-aws-prod-opendata.s3.amazonaws.com/dataset"
 # Anos que queremos coletar para comparação
 ANOS = [2024, 2025, 2026]
 
+# Controle de resultados — mostra resumo no final
+resultados = {}
+
 # ── Função de download de XLSX ─────────────────────────────────────────────
 def baixar_xlsx(url):
     print(f"   Tentando: {url}")
-
-    # Faz o download com timeout de 60 segundos (xlsx pode ser maior)
     r = requests.get(url, timeout=60)
-
-    # Se o arquivo existir (status 200), lê como Excel
     if r.status_code == 200:
         return pd.read_excel(BytesIO(r.content))
-
-    # Se o arquivo não existir (ex: mês futuro), retorna None sem travar
     print(f"   ⚠️ Não encontrado (status {r.status_code})")
     return None
 
 # ── Função de salvar no Google Sheets ─────────────────────────────────────
 def salvar_na_aba(nome_aba, df):
-    # Abre a aba pelo nome exato conforme está no Google Sheets
     ws = sh.worksheet(nome_aba)
-
-    # Limpa o conteúdo anterior da aba
     ws.clear()
 
-    # Converte tudo para texto para evitar erros de tipo de dado
+    # Substitui NaN e infinitos por vazio (Google Sheets não aceita esses valores)
+    df = df.fillna("").replace([float('inf'), float('-inf')], "")
+
+    # Converte tudo para texto
     df = df.astype(str)
 
-    # Escreve os cabeçalhos + todos os dados na planilha
+    # Substitui textos "nan" e "inf" gerados pela conversão
+    df = df.replace("nan", "").replace("inf", "").replace("-inf", "")
+
     ws.update([df.columns.tolist()] + df.values.tolist())
     print(f"   ✅ {nome_aba}: {len(df)} linhas salvas")
 
+# ── Função principal — roda cada dataset de forma independente ─────────────
+# Se um dataset falhar, o script continua para o próximo
+def coletar(nome, funcao):
+    print(f"\n{'='*60}")
+    try:
+        funcao()
+        resultados[nome] = "✅ Sucesso"
+    except Exception as e:
+        print(f"   ❌ Erro em {nome}: {e}")
+        resultados[nome] = f"❌ Erro: {e}"
+
 # ── 1. Curva de Carga Horária ──────────────────────────────────────────────
-# Aba no Sheets: CURVA_CARGA
-# Padrão ONS: um arquivo por ano inteiro
-print("\n📊 Coletando Curva de Carga Horária...")
-frames_carga = []
-
-for ano in ANOS:
-    url = f"{BASE_URL}/curva-carga-ho/CURVA_CARGA_{ano}.xlsx"
-    df = baixar_xlsx(url)
-    if df is not None:
-        frames_carga.append(df)
-        print(f"   ✔ {ano} - {len(df)} registros")
-
-if frames_carga:
-    df_carga = pd.concat(frames_carga, ignore_index=True)
-    salvar_na_aba("CURVA_CARGA", df_carga)
-else:
-    print("   ⚠️ Nenhum dado encontrado para carga horária")
-
-# ── 2. Fator de Capacidade Eólica e Solar ─────────────────────────────────
-# Aba no Sheets: FATOR_CAPACIDADE
-# Padrão ONS: um arquivo por mês/ano
-print("\n🌬️ Coletando Fator de Capacidade Eólica e Solar...")
-frames_fc = []
-
-for ano in ANOS:
-    for mes in range(1, 13):
-        url = f"{BASE_URL}/fator_capacidade_2_di/FATOR_CAPACIDADE-2_{ano}_{mes:02d}.xlsx"
+def coletar_curva_carga():
+    print("📊 Coletando Curva de Carga Horária...")
+    frames = []
+    for ano in ANOS:
+        url = f"{BASE_URL}/curva-carga-ho/CURVA_CARGA_{ano}.xlsx"
         df = baixar_xlsx(url)
         if df is not None:
-            frames_fc.append(df)
-            print(f"   ✔ {ano}/{mes:02d} - {len(df)} registros")
+            frames.append(df)
+            print(f"   ✔ {ano} - {len(df)} registros")
+    if frames:
+        salvar_na_aba("CURVA_CARGA", pd.concat(frames, ignore_index=True))
+    else:
+        print("   ⚠️ Nenhum dado encontrado")
 
-if frames_fc:
-    df_fc = pd.concat(frames_fc, ignore_index=True)
-    salvar_na_aba("FATOR_CAPACIDADE", df_fc)
-else:
-    print("   ⚠️ Nenhum dado encontrado para fator de capacidade")
+# ── 2. Fator de Capacidade Eólica e Solar ─────────────────────────────────
+def coletar_fator_capacidade():
+    print("🌬️ Coletando Fator de Capacidade Eólica e Solar...")
+    frames = []
+    for ano in ANOS:
+        for mes in range(1, 13):
+            url = f"{BASE_URL}/fator_capacidade_2_di/FATOR_CAPACIDADE-2_{ano}_{mes:02d}.xlsx"
+            df = baixar_xlsx(url)
+            if df is not None:
+                frames.append(df)
+                print(f"   ✔ {ano}/{mes:02d} - {len(df)} registros")
+    if frames:
+        salvar_na_aba("FATOR_CAPACIDADE", pd.concat(frames, ignore_index=True))
+    else:
+        print("   ⚠️ Nenhum dado encontrado")
 
-# ── 3. Capacidade Instalada ────────────────────────────────────────────────
-# Aba no Sheets: CAPACIDADE_INSTALADA
-# Padrão ONS: arquivo único sem ano (atualizado diretamente pelo ONS)
-print("\n⚡ Coletando Capacidade de Geração...")
-
-url = f"{BASE_URL}/capacidade-geracao/CAPACIDADE_GERACAO.xlsx"
-df_ci = baixar_xlsx(url)
-
-if df_ci is not None:
-    salvar_na_aba("CAPACIDADE_INSTALADA", df_ci)
-else:
-    print("   ⚠️ Nenhum dado encontrado para capacidade de geração")
-
-# ── 4. Carga de Energia Mensal ─────────────────────────────────────────────
-# Aba no Sheets: CARGA_ENERGIA_MENSAL
-# Padrão ONS: arquivo único com todo o histórico mensal
-print("\n📅 Coletando Carga de Energia Mensal...")
-
-url = f"{BASE_URL}/carga_energia_me/CARGA_MENSAL.xlsx"
-df_mensal = baixar_xlsx(url)
-
-if df_mensal is not None:
-    salvar_na_aba("CARGA_ENERGIA_MENSAL", df_mensal)
-else:
-    print("   ⚠️ Nenhum dado encontrado para carga mensal")
-
-# ── 5. Carga de Energia Diária ─────────────────────────────────────────────
-# Aba no Sheets: CARGA_ENERGIA_DIARIA
-# Padrão ONS: um arquivo por ano (igual à curva de carga)
-print("\n📆 Coletando Carga de Energia Diária...")
-frames_diaria = []
-
-for ano in ANOS:
-    url = f"{BASE_URL}/carga_energia_di/CARGA_ENERGIA_{ano}.xlsx"
+# ── 3. Capacidade de Geração ───────────────────────────────────────────────
+def coletar_capacidade_geracao():
+    print("⚡ Coletando Capacidade de Geração...")
+    url = f"{BASE_URL}/capacidade-geracao/CAPACIDADE_GERACAO.xlsx"
     df = baixar_xlsx(url)
     if df is not None:
-        frames_diaria.append(df)
-        print(f"   ✔ {ano} - {len(df)} registros")
+        salvar_na_aba("CAPACIDADE_INSTALADA", df)
+    else:
+        print("   ⚠️ Nenhum dado encontrado")
 
-if frames_diaria:
-    df_diaria = pd.concat(frames_diaria, ignore_index=True)
-    salvar_na_aba("CARGA_ENERGIA_DIARIA", df_diaria)
-else:
-    print("   ⚠️ Nenhum dado encontrado para carga diária")
+# ── 4. Carga de Energia Mensal ─────────────────────────────────────────────
+def coletar_carga_mensal():
+    print("📅 Coletando Carga de Energia Mensal...")
+    url = f"{BASE_URL}/carga_energia_me/CARGA_MENSAL.xlsx"
+    df = baixar_xlsx(url)
+    if df is not None:
+        salvar_na_aba("CARGA_ENERGIA_MENSAL", df)
+    else:
+        print("   ⚠️ Nenhum dado encontrado")
 
-print(f"\n🎉 Coleta finalizada com sucesso! - {datetime.now().strftime('%d/%m/%Y %H:%M')}")
+# ── 5. Carga de Energia Diária ─────────────────────────────────────────────
+def coletar_carga_diaria():
+    print("📆 Coletando Carga de Energia Diária...")
+    frames = []
+    for ano in ANOS:
+        url = f"{BASE_URL}/carga_energia_di/CARGA_ENERGIA_{ano}.xlsx"
+        df = baixar_xlsx(url)
+        if df is not None:
+            frames.append(df)
+            print(f"   ✔ {ano} - {len(df)} registros")
+    if frames:
+        salvar_na_aba("CARGA_ENERGIA_DIARIA", pd.concat(frames, ignore_index=True))
+    else:
+        print("   ⚠️ Nenhum dado encontrado")
+
+# ── Execução independente de cada dataset ─────────────────────────────────
+# Cada dataset roda separadamente — se um falhar, os outros continuam
+coletar("Curva de Carga Horária",        coletar_curva_carga)
+coletar("Fator de Capacidade",           coletar_fator_capacidade)
+coletar("Capacidade de Geração",         coletar_capacidade_geracao)
+coletar("Carga de Energia Mensal",       coletar_carga_mensal)
+coletar("Carga de Energia Diária",       coletar_carga_diaria)
+
+# ── Resumo final ───────────────────────────────────────────────────────────
+print(f"\n{'='*60}")
+print(f"📋 RESUMO - {datetime.now().strftime('%d/%m/%Y %H:%M')}")
+for nome, status in resultados.items():
+    print(f"   {status} — {nome}")
+print('='*60)
