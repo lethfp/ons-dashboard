@@ -41,6 +41,12 @@ def salvar_na_aba(nome_aba, df):
     ws = sh.worksheet(nome_aba)
     ws.clear()
 
+    # Converte colunas de data para string antes de qualquer coisa
+    # (evita NaT que o Google Sheets não aceita)
+    for col in df.columns:
+        if pd.api.types.is_datetime64_any_dtype(df[col]):
+            df[col] = df[col].dt.strftime('%d/%m/%Y %H:%M').fillna("")
+
     # Tratamento agressivo de valores inválidos — célula por célula
     for col in df.columns:
         df[col] = df[col].apply(lambda x:
@@ -52,7 +58,7 @@ def salvar_na_aba(nome_aba, df):
     df = df.astype(str)
 
     # Remove textos "nan", "inf", "NaT" gerados pela conversão
-    df = df.replace({"nan": "", "NaN": "", "inf": "", "-inf": "", "NaT": ""})
+    df = df.replace({"nan": "", "NaN": "", "inf": "", "-inf": "", "NaT": "", "NaT ": ""})
 
     ws.update([df.columns.tolist()] + df.values.tolist())
     print(f"   ✅ {nome_aba}: {len(df)} linhas salvas")
@@ -85,22 +91,18 @@ def coletar_curva_carga():
 # ── 2. Fator de Capacidade Eólica e Solar ─────────────────────────────────
 # Estratégia: todos os meses disponíveis de 2026
 def coletar_fator_capacidade():
-    print("🌬️ Coletando Fator de Capacidade Eólica e Solar (2026)...")
-    frames = []
+    print("🌬️ Coletando Fator de Capacidade Eólica e Solar (mês mais recente 2026)...")
 
-    # Tenta todos os meses de 2026 do mês atual para trás
+    # Tenta do mês atual para trás até achar o primeiro disponível
     mes_atual = datetime.now().month
-    for mes in range(1, mes_atual + 1):
+    for mes in range(mes_atual, 0, -1):
         url = f"{BASE_URL}/fator_capacidade_2_di/FATOR_CAPACIDADE-2_2026_{mes:02d}.xlsx"
         df = baixar_xlsx(url)
         if df is not None:
-            frames.append(df)
-            print(f"   ✔ 2026/{mes:02d} - {len(df)} registros")
-
-    if frames:
-        salvar_na_aba("FATOR_CAPACIDADE", pd.concat(frames, ignore_index=True))
-    else:
-        print("   ⚠️ Nenhum dado encontrado")
+            print(f"   ✔ 2026/{mes:02d} - {len(df)} registros (mais recente)")
+            salvar_na_aba("FATOR_CAPACIDADE", df)
+            return
+    print("   ⚠️ Nenhum dado encontrado")
 
 # ── 3. Capacidade de Geração ───────────────────────────────────────────────
 def coletar_capacidade_geracao():
