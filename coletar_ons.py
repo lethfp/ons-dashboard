@@ -111,6 +111,20 @@ def coletar_capacidade_geracao():
     df = baixar_xlsx(url)
     if df is not None:
         salvar_na_aba("CAPACIDADE_INSTALADA", df)
+
+        # Agrupa por usina somando a potência de cada unidade geradora
+        # (val_potenciaefetiva é por unidade, precisamos do total da usina)
+        colunas = ["id_subsistema", "id_estado", "nom_tipousina", "nom_usina", "val_potenciaefetiva"]
+        df_grupo = df[colunas].copy()
+        df_grupo["val_potenciaefetiva"] = pd.to_numeric(df_grupo["val_potenciaefetiva"], errors="coerce")
+        df_agrupado = (
+            df_grupo
+            .groupby(["id_subsistema", "id_estado", "nom_tipousina", "nom_usina"], as_index=False)
+            .agg(val_potenciaefetiva_total_MW=("val_potenciaefetiva", "sum"))
+            .sort_values("val_potenciaefetiva_total_MW", ascending=False)
+        )
+        salvar_na_aba("CAPACIDADE_AGRUPADA", df_agrupado)
+        print(f"   ✅ CAPACIDADE_AGRUPADA: {len(df_agrupado)} usinas agrupadas")
     else:
         print("   ⚠️ Nenhum dado encontrado")
 
