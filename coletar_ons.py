@@ -132,9 +132,28 @@ def coletar_capacidade_geracao():
         }
         df_grupo["nom_regiao"] = df_grupo["id_estado"].map(mapa_regiao).fillna("Outros")
 
+        # Adiciona nome completo do estado para o Looker Studio reconhecer geograficamente
+        mapa_estado = {
+            "AC": "Acre",                "AL": "Alagoas",
+            "AP": "Amapá",              "AM": "Amazonas",
+            "BA": "Bahia",              "CE": "Ceará",
+            "DF": "Distrito Federal",   "ES": "Espírito Santo",
+            "GO": "Goiás",              "MA": "Maranhão",
+            "MT": "Mato Grosso",        "MS": "Mato Grosso do Sul",
+            "MG": "Minas Gerais",       "PA": "Pará",
+            "PB": "Paraíba",            "PR": "Paraná",
+            "PE": "Pernambuco",         "PI": "Piauí",
+            "RJ": "Rio de Janeiro",     "RN": "Rio Grande do Norte",
+            "RS": "Rio Grande do Sul",  "RO": "Rondônia",
+            "RR": "Roraima",            "SC": "Santa Catarina",
+            "SP": "São Paulo",          "SE": "Sergipe",
+            "TO": "Tocantins"
+        }
+        df_grupo["nom_estado"] = df_grupo["id_estado"].map(mapa_estado).fillna(df_grupo["id_estado"])
+
         df_agrupado = (
             df_grupo
-            .groupby(["id_subsistema", "nom_regiao", "id_estado", "nom_tipousina", "nom_usina"], as_index=False)
+            .groupby(["id_subsistema", "nom_regiao", "id_estado", "nom_estado", "nom_tipousina", "nom_usina"], as_index=False)
             .agg(val_potenciaefetiva_total_MW=("val_potenciaefetiva", "sum"))
             .sort_values("val_potenciaefetiva_total_MW", ascending=False)
         )
