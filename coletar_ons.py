@@ -117,9 +117,24 @@ def coletar_capacidade_geracao():
         colunas = ["id_subsistema", "id_estado", "nom_tipousina", "nom_usina", "val_potenciaefetiva"]
         df_grupo = df[colunas].copy()
         df_grupo["val_potenciaefetiva"] = pd.to_numeric(df_grupo["val_potenciaefetiva"], errors="coerce")
+
+        # Adiciona coluna de região geográfica baseada no estado (não no subsistema elétrico do ONS)
+        mapa_regiao = {
+            "AC": "Norte",       "AP": "Norte",       "AM": "Norte",
+            "PA": "Norte",       "RO": "Norte",       "RR": "Norte",
+            "TO": "Norte",       "AL": "Nordeste",    "BA": "Nordeste",
+            "CE": "Nordeste",    "MA": "Nordeste",    "PB": "Nordeste",
+            "PE": "Nordeste",    "PI": "Nordeste",    "RN": "Nordeste",
+            "SE": "Nordeste",    "DF": "Centro-Oeste","GO": "Centro-Oeste",
+            "MT": "Centro-Oeste","MS": "Centro-Oeste","ES": "Sudeste",
+            "MG": "Sudeste",     "RJ": "Sudeste",     "SP": "Sudeste",
+            "PR": "Sul",         "RS": "Sul",          "SC": "Sul"
+        }
+        df_grupo["nom_regiao"] = df_grupo["id_estado"].map(mapa_regiao).fillna("Outros")
+
         df_agrupado = (
             df_grupo
-            .groupby(["id_subsistema", "id_estado", "nom_tipousina", "nom_usina"], as_index=False)
+            .groupby(["id_subsistema", "nom_regiao", "id_estado", "nom_tipousina", "nom_usina"], as_index=False)
             .agg(val_potenciaefetiva_total_MW=("val_potenciaefetiva", "sum"))
             .sort_values("val_potenciaefetiva_total_MW", ascending=False)
         )
