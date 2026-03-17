@@ -132,22 +132,22 @@ def coletar_capacidade_geracao():
         }
         df_grupo["nom_regiao"] = df_grupo["id_estado"].map(mapa_regiao).fillna("Outros")
 
-        # Adiciona nome completo do estado para o Looker Studio reconhecer geograficamente
+        # Adiciona nome completo do estado com país para o Looker Studio reconhecer corretamente
         mapa_estado = {
-            "AC": "Acre",                "AL": "Alagoas",
-            "AP": "Amapá",              "AM": "Amazonas",
-            "BA": "Bahia",              "CE": "Ceará",
-            "DF": "Distrito Federal",   "ES": "Espírito Santo",
-            "GO": "Goiás",              "MA": "Maranhão",
-            "MT": "Mato Grosso",        "MS": "Mato Grosso do Sul",
-            "MG": "Minas Gerais",       "PA": "Pará",
-            "PB": "Paraíba",            "PR": "Paraná",
-            "PE": "Pernambuco",         "PI": "Piauí",
-            "RJ": "Rio de Janeiro",     "RN": "Rio Grande do Norte",
-            "RS": "Rio Grande do Sul",  "RO": "Rondônia",
-            "RR": "Roraima",            "SC": "Santa Catarina",
-            "SP": "São Paulo",          "SE": "Sergipe",
-            "TO": "Tocantins"
+            "AC": "Acre, Brazil",                "AL": "Alagoas, Brazil",
+            "AP": "Amapá, Brazil",              "AM": "Amazonas, Brazil",
+            "BA": "Bahia, Brazil",              "CE": "Ceará, Brazil",
+            "DF": "Distrito Federal, Brazil",   "ES": "Espírito Santo, Brazil",
+            "GO": "Goiás, Brazil",              "MA": "Maranhão, Brazil",
+            "MT": "Mato Grosso, Brazil",        "MS": "Mato Grosso do Sul, Brazil",
+            "MG": "Minas Gerais, Brazil",       "PA": "Pará, Brazil",
+            "PB": "Paraíba, Brazil",            "PR": "Paraná, Brazil",
+            "PE": "Pernambuco, Brazil",         "PI": "Piauí, Brazil",
+            "RJ": "Rio de Janeiro, Brazil",     "RN": "Rio Grande do Norte, Brazil",
+            "RS": "Rio Grande do Sul, Brazil",  "RO": "Rondônia, Brazil",
+            "RR": "Roraima, Brazil",            "SC": "Santa Catarina, Brazil",
+            "SP": "São Paulo, Brazil",          "SE": "Sergipe, Brazil",
+            "TO": "Tocantins, Brazil"
         }
         df_grupo["nom_estado"] = df_grupo["id_estado"].map(mapa_estado).fillna(df_grupo["id_estado"])
 
@@ -157,6 +157,8 @@ def coletar_capacidade_geracao():
             .agg(val_potenciaefetiva_total_MW=("val_potenciaefetiva", "sum"))
             .sort_values("val_potenciaefetiva_total_MW", ascending=False)
         )
+        # Arredonda para 2 casas decimais para evitar resíduos de ponto flutuante
+        df_agrupado["val_potenciaefetiva_total_MW"] = df_agrupado["val_potenciaefetiva_total_MW"].round(2)
         salvar_na_aba("CAPACIDADE_AGRUPADA", df_agrupado)
         print(f"   ✅ CAPACIDADE_AGRUPADA: {len(df_agrupado)} usinas agrupadas")
     else:
