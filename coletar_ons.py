@@ -58,8 +58,7 @@ def salvar_na_aba(nome_aba, df):
     for col in df.columns:
         if pd.api.types.is_numeric_dtype(df[col]):
             df[col] = pd.to_numeric(df[col], errors="coerce")
-            
-       ws.update([df.columns.tolist()] + df.fillna("").values.tolist())
+    ws.update([df.columns.tolist()] + df.values.tolist())
         print(f"   ✅ {nome_aba}: {len(df)} linhas salvas")
 
 # ── Função principal — roda cada dataset de forma independente ─────────────
