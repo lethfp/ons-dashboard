@@ -41,25 +41,24 @@ def salvar_na_aba(nome_aba, df):
     ws = sh.worksheet(nome_aba)
     ws.clear()
 
-    # Converte colunas de data para string antes de qualquer coisa
-    # (evita NaT que o Google Sheets não aceita)
+    # Converte colunas de data para string (evita erro no Sheets)
     for col in df.columns:
         if pd.api.types.is_datetime64_any_dtype(df[col]):
-            df[col] = df[col].dt.strftime('%d/%m/%Y %H:%M').fillna("")
+            df[col] = df[col].dt.strftime('%d/%m/%Y %H:%M')
 
-    # Tratamento agressivo de valores inválidos — célula por célula
-    for col in df.columns:
-        df[col] = df[col].apply(lambda x:
-            "" if (isinstance(x, float) and (math.isnan(x) or math.isinf(x)))
-            else x
-        )
-
-    # Limpa valores inválidos mas mantém como número
+    # Garante que colunas numéricas continuem numéricas
     for col in df.columns:
         if pd.api.types.is_numeric_dtype(df[col]):
             df[col] = pd.to_numeric(df[col], errors="coerce")
+
+    # Substitui NaN por vazio (Sheets não aceita)
+    df = df.fillna("")
+
+    # Envia para o Google Sheets
     ws.update([df.columns.tolist()] + df.values.tolist())
-        print(f"   ✅ {nome_aba}: {len(df)} linhas salvas")
+
+    print(f"   ✅ {nome_aba}: {len(df)} linhas salvas")
+
 
 # ── Função principal — roda cada dataset de forma independente ─────────────
 def coletar(nome, funcao):
