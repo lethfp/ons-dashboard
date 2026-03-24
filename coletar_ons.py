@@ -41,24 +41,27 @@ def salvar_na_aba(nome_aba, df):
     ws = sh.worksheet(nome_aba)
     ws.clear()
 
-    # Converte colunas de data para string (evita erro no Sheets)
+    # Converte colunas de data para string antes de qualquer coisa
+    # (evita NaT que o Google Sheets não aceita)
     for col in df.columns:
         if pd.api.types.is_datetime64_any_dtype(df[col]):
-            df[col] = df[col].dt.strftime('%d/%m/%Y %H:%M')
+            df[col] = df[col].dt.strftime('%d/%m/%Y %H:%M').fillna("")
 
-    # Garante que colunas numéricas continuem numéricas
+    # Tratamento agressivo de valores inválidos — célula por célula
     for col in df.columns:
-        if pd.api.types.is_numeric_dtype(df[col]):
-            df[col] = pd.to_numeric(df[col], errors="coerce")
+        df[col] = df[col].apply(lambda x:
+            "" if (isinstance(x, float) and (math.isnan(x) or math.isinf(x)))
+            else x
+        )
 
-    # Substitui NaN por vazio (Sheets não aceita)
-    df = df.fillna("")
+    # Converte tudo para string
+    df = df.astype(str)
 
-    # Envia para o Google Sheets
+    # Remove textos "nan", "inf", "NaT" gerados pela conversão
+    df = df.replace({"nan": "", "NaN": "", "inf": "", "-inf": "", "NaT": "", "NaT ": ""})
+
     ws.update([df.columns.tolist()] + df.values.tolist())
-
     print(f"   ✅ {nome_aba}: {len(df)} linhas salvas")
-
 
 # ── Função principal — roda cada dataset de forma independente ─────────────
 def coletar(nome, funcao):
@@ -154,7 +157,7 @@ def coletar_capacidade_geracao():
             .agg(val_potenciaefetiva_total_MW=("val_potenciaefetiva", "sum"))
             .sort_values("val_potenciaefetiva_total_MW", ascending=False)
         )
-        # Arredonda para 2 casas decimais
+        # Arredonda para 2 casas decimais para evitar resíduos de ponto flutuante
         df_agrupado["val_potenciaefetiva_total_MW"] = df_agrupado["val_potenciaefetiva_total_MW"].round(2)
         salvar_na_aba("CAPACIDADE_AGRUPADA", df_agrupado)
         print(f"   ✅ CAPACIDADE_AGRUPADA: {len(df_agrupado)} usinas agrupadas")
