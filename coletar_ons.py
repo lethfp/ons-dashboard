@@ -60,14 +60,6 @@ def salvar_na_aba(nome_aba, df):
     # Remove textos "nan", "inf", "NaT" gerados pela conversão
     df = df.replace({"nan": "", "NaN": "", "inf": "", "-inf": "", "NaT": "", "NaT ": ""})
 
-    # Converte separador decimal de ponto para vírgula (formato brasileiro)
-    # Aplica apenas em células que parecem números decimais (ex: 1234.56 → 1234,56)
-    import re
-    for col in df.columns:
-        df[col] = df[col].apply(
-            lambda x: re.sub(r"^(-?\d+)\.(\d+)$", r",", x) if isinstance(x, str) else x
-        )
-
     ws.update([df.columns.tolist()] + df.values.tolist())
     print(f"   ✅ {nome_aba}: {len(df)} linhas salvas")
 
@@ -165,7 +157,7 @@ def coletar_capacidade_geracao():
             .agg(val_potenciaefetiva_total_MW=("val_potenciaefetiva", "sum"))
             .sort_values("val_potenciaefetiva_total_MW", ascending=False)
         )
-        # Arredonda para 2 casas decimais
+        # Arredonda para 2 casas decimais para evitar resíduos de ponto flutuante
         df_agrupado["val_potenciaefetiva_total_MW"] = df_agrupado["val_potenciaefetiva_total_MW"].round(2)
         salvar_na_aba("CAPACIDADE_AGRUPADA", df_agrupado)
         print(f"   ✅ CAPACIDADE_AGRUPADA: {len(df_agrupado)} usinas agrupadas")
