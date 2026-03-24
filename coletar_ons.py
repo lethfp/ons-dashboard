@@ -54,14 +54,13 @@ def salvar_na_aba(nome_aba, df):
             else x
         )
 
-    # Converte tudo para string
-    df = df.astype(str)
-
-    # Remove textos "nan", "inf", "NaT" gerados pela conversão
-    df = df.replace({"nan": "", "NaN": "", "inf": "", "-inf": "", "NaT": "", "NaT ": ""})
-
-    ws.update([df.columns.tolist()] + df.values.tolist())
-    print(f"   ✅ {nome_aba}: {len(df)} linhas salvas")
+    # Limpa valores inválidos mas mantém como número
+    for col in df.columns:
+        if pd.api.types.is_numeric_dtype(df[col]):
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+            
+       ws.update([df.columns.tolist()] + df.fillna("").values.tolist())
+        print(f"   ✅ {nome_aba}: {len(df)} linhas salvas")
 
 # ── Função principal — roda cada dataset de forma independente ─────────────
 def coletar(nome, funcao):
@@ -157,7 +156,7 @@ def coletar_capacidade_geracao():
             .agg(val_potenciaefetiva_total_MW=("val_potenciaefetiva", "sum"))
             .sort_values("val_potenciaefetiva_total_MW", ascending=False)
         )
-        # Arredonda para 2 casas decimais para evitar resíduos de ponto flutuante
+        # Arredonda para 2 casas decimais
         df_agrupado["val_potenciaefetiva_total_MW"] = df_agrupado["val_potenciaefetiva_total_MW"].round(2)
         salvar_na_aba("CAPACIDADE_AGRUPADA", df_agrupado)
         print(f"   ✅ CAPACIDADE_AGRUPADA: {len(df_agrupado)} usinas agrupadas")
