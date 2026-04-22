@@ -41,29 +41,27 @@ def salvar_na_aba(nome_aba, df):
     ws = sh.worksheet(nome_aba)
     ws.clear()
 
-    # Converte colunas de data para string antes de qualquer coisa
-    # (evita NaT que o Google Sheets não aceita)
+    # Converte datas para string
     for col in df.columns:
         if pd.api.types.is_datetime64_any_dtype(df[col]):
             df[col] = df[col].dt.strftime('%d/%m/%Y %H:%M').fillna("")
 
-    # Tratamento agressivo de valores inválidos — célula por célula
+    # Remove valores inválidos
     for col in df.columns:
         df[col] = df[col].apply(lambda x:
             "" if (isinstance(x, float) and (math.isnan(x) or math.isinf(x)))
             else x
         )
 
-    # Converte tudo para string
-    df = df.astype(str)
+    # 🚨 NÃO converte número pra string (ESSA É A CHAVE)
+    # Só trata NaN
+    df = df.fillna("")
 
-    # Remove textos "nan", "inf", "NaT" gerados pela conversão
-    df = df.replace({"nan": "", "NaN": "", "inf": "", "-inf": "", "NaT": "", "NaT ": ""})
-
- ws.update([df.columns.tolist()] + df.fillna("").values.tolist())
-
+    # Atualiza planilha (UMA VEZ SÓ)
     ws.update([df.columns.tolist()] + df.values.tolist())
+
     print(f"   ✅ {nome_aba}: {len(df)} linhas salvas")
+
 
 # ── Função principal — roda cada dataset de forma independente ─────────────
 def coletar(nome, funcao):
