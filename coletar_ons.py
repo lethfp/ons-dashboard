@@ -60,6 +60,14 @@ def salvar_na_aba(nome_aba, df):
     # Remove textos "nan", "inf", "NaT" gerados pela conversão
     df = df.replace({"nan": "", "NaN": "", "inf": "", "-inf": "", "NaT": "", "NaT ": ""})
 
+    # Converte separador decimal de ponto para vírgula (formato brasileiro)
+    # Aplica apenas em células que parecem números decimais (ex: 1234.56 → 1234,56)
+    import re
+    for col in df.columns:
+        df[col] = df[col].apply(
+            lambda x: re.sub(r"^(-?\d+)\.(\d+)$", r",", x) if isinstance(x, str) else x
+        )
+
     ws.update([df.columns.tolist()] + df.values.tolist())
     print(f"   ✅ {nome_aba}: {len(df)} linhas salvas")
 
@@ -157,7 +165,7 @@ def coletar_capacidade_geracao():
             .agg(val_potenciaefetiva_total_MW=("val_potenciaefetiva", "sum"))
             .sort_values("val_potenciaefetiva_total_MW", ascending=False)
         )
-        # Arredonda para 2 casas decimais para evitar resíduos de ponto flutuante
+        # Arredonda para 2 casas decimais
         df_agrupado["val_potenciaefetiva_total_MW"] = df_agrupado["val_potenciaefetiva_total_MW"].round(2)
         salvar_na_aba("CAPACIDADE_AGRUPADA", df_agrupado)
         print(f"   ✅ CAPACIDADE_AGRUPADA: {len(df_agrupado)} usinas agrupadas")
@@ -189,12 +197,39 @@ def coletar_carga_diaria():
     else:
         print("   ⚠️ Nenhum dado encontrado")
 
+# ── 6. Interrupção de Carga ───────────────────────────────────────────────
+def coletar_interrupcao_carga():
+    print("⚡ Coletando Interrupção de Carga...")
+    url = f"{BASE_URL}/interrupcao_carga/INTERRUPCAO_CARGA.xlsx"
+    df = baixar_xlsx(url)
+    if df is not None:
+        salvar_na_aba("INTERRUPCAO_CARGA", df)
+    else:
+        print("   ⚠️ Nenhum dado encontrado")
+
+# ── 7. Balanço de Energia por Subsistema ──────────────────────────────────
+def coletar_balanco_energia():
+    print("⚖️ Coletando Balanço de Energia por Subsistema...")
+    frames = []
+    for ano in ANOS:
+        url = f"{BASE_URL}/balanco_energia_subsistema_ho/BALANCO_ENERGIA_SUBSISTEMA_{ano}.xlsx"
+        df = baixar_xlsx(url)
+        if df is not None:
+            frames.append(df)
+            print(f"   ✔ {ano} - {len(df)} registros")
+    if frames:
+        salvar_na_aba("BALANCO_ENERGIA_SUBSISTEMA", pd.concat(frames, ignore_index=True))
+    else:
+        print("   ⚠️ Nenhum dado encontrado")
+
 # ── Execução independente de cada dataset ─────────────────────────────────
-coletar("Curva de Carga Horária",  coletar_curva_carga)
-coletar("Fator de Capacidade",     coletar_fator_capacidade)
-coletar("Capacidade de Geração",   coletar_capacidade_geracao)
-coletar("Carga de Energia Mensal", coletar_carga_mensal)
-coletar("Carga de Energia Diária", coletar_carga_diaria)
+coletar("Curva de Carga Horária",        coletar_curva_carga)
+coletar("Fator de Capacidade",           coletar_fator_capacidade)
+coletar("Capacidade de Geração",         coletar_capacidade_geracao)
+coletar("Carga de Energia Mensal",       coletar_carga_mensal)
+coletar("Carga de Energia Diária",       coletar_carga_diaria)
+coletar("Interrupção de Carga",          coletar_interrupcao_carga)
+coletar("Balanço de Energia Subsistema", coletar_balanco_energia)
 
 # ── Resumo final ───────────────────────────────────────────────────────────
 print(f"\n{'='*60}")
