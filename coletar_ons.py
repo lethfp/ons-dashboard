@@ -60,13 +60,7 @@ def salvar_na_aba(nome_aba, df):
     # Remove textos "nan", "inf", "NaT" gerados pela conversão
     df = df.replace({"nan": "", "NaN": "", "inf": "", "-inf": "", "NaT": "", "NaT ": ""})
 
-    # Converte separador decimal de ponto para vírgula (formato brasileiro)
-    # Aplica apenas em células que parecem números decimais (ex: 1234.56 → 1234,56)
-    import re
-    for col in df.columns:
-        df[col] = df[col].apply(
-            lambda x: re.sub(r"^(-?\d+)\.(\d+)$", r",", x) if isinstance(x, str) else x
-        )
+ ws.update([df.columns.tolist()] + df.fillna("").values.tolist())
 
     ws.update([df.columns.tolist()] + df.values.tolist())
     print(f"   ✅ {nome_aba}: {len(df)} linhas salvas")
